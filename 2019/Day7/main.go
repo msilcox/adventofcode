@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func doRun(program []int, input []int) (output []int) {
+func emulate(program []int, input <-chan int, output chan<- int, halt chan<- bool) {
 	memory := make([]int, len(program))
 	copy(memory, program)
 
@@ -43,13 +43,12 @@ func doRun(program []int, input []int) (output []int) {
 
 		case 3: // INPUT
 			a := memory[ip+1]
-			memory[a] = input[0]
-			input = input[1:]
+			memory[a] = <-input
 			ip += 2
 
 		case 4: // OUTPUT
 			a := getParameter(1)
-			output = append(output, a)
+			output <- a
 			ip += 2
 
 		case 5: // JUMP IF TRUE
@@ -87,7 +86,8 @@ func doRun(program []int, input []int) (output []int) {
 			ip += 4
 
 		case 99: // HALT
-			return output
+			halt <- true
+			return
 
 		default:
 			panic(fmt.Sprintf("fault: invalid opcode: ip=%d instruction=%d opcode=%d", ip, instruction, opcode))
@@ -96,7 +96,7 @@ func doRun(program []int, input []int) (output []int) {
 }
 
 func main() {
-	input := readFile("test.txt")
+	input := readFile("input.txt")
 
 	var program []int
 	for _, value := range strings.Split(input, ",") {
@@ -105,34 +105,83 @@ func main() {
 
 	{
 		fmt.Println("--- Part One ---")
-		var phaseSettings [5][5]int
-		for i := 0; i < 5; i++ {
-			phase1 := i
-			phaseSettings[i] = [5]int{phase1, (phase1 + 1) % 5, (phase1 + 2) % 5, (phase1 + 3) % 5, (phase1 + 4) % 5}
-		}
+
+		phaseSettings := getPermutations([]int{0,1,2,3,4})
 		maxThruster := 0
-		input := 0
-		for i := range phaseSettings {
-			for _, j := range phaseSettings[i] {
-				output := doRun(program, []int{j, input})
-				input = output[len(output)-1]
-			}
-			maxThruster = max(maxThruster, input)
-			input = 0
+		for _, p := range phaseSettings {
+             e := emulateAmplifiers(program, p)
+
+			maxThruster = max(maxThruster, e)
 		}
 		fmt.Println(maxThruster)
 	}
 
-	//{
-	//	fmt.Println("--- Part Two ---")
-	//	output := doRun(program, []int{5})
-	//	for i := 0; i < len(output)-1; i++ {
-	//		if output[i] != 0 {
-	//			panic(fmt.Sprintf("test failure: %v", output))
-	//		}
-	//	}
-	//	fmt.Println(output[len(output)-1])
-	//}
+	{
+		fmt.Println("--- Part Two ---")
+
+	    phaseSettings := getPermutations([]int{5,6,7,8,9})
+    	maxThruster := 0
+    	for _, p := range phaseSettings {
+                e := emulateAmplifiers(program, p)
+
+    			maxThruster = max(maxThruster, e)
+    		}
+    		fmt.Println(maxThruster)
+	}
+}
+
+func emulateAmplifiers(program []int, phaseSettings []int) int {
+	// Set up the channels connecting the amplifiers.
+	ea := make(chan int, 1) // must be buffered to receive final result
+	ab := make(chan int)
+	bc := make(chan int)
+	cd := make(chan int)
+	de := make(chan int)
+
+	// This channel will receive a value each time an amplifier halts.
+	halt := make(chan bool)
+
+	// Start amplifiers in parallel.
+	go emulate(program, ea, ab, halt)
+	go emulate(program, ab, bc, halt)
+	go emulate(program, bc, cd, halt)
+	go emulate(program, cd, de, halt)
+	go emulate(program, de, ea, halt)
+
+	// Provide phase settings.
+	ea <- phaseSettings[0]
+	ab <- phaseSettings[1]
+	bc <- phaseSettings[2]
+	cd <- phaseSettings[3]
+	de <- phaseSettings[4]
+
+	// Send initial input signal.
+	ea <- 0
+
+	// Wait for all amplifiers to halt.
+	for i := 0; i < 5; i++ {
+		<-halt
+	}
+
+	// Read the final result.
+	return <-ea
+}
+
+func getPermutations(elements []int) [][]int {
+	permutations := [][]int{}
+	if len(elements) == 1 {
+		permutations = [][]int{elements}
+		return permutations
+	}
+	for i := range elements {
+		el := make([]int, len(elements))
+		copy(el, elements)
+
+		for _, perm := range getPermutations(append(el[0:i], el[i+1:]...)) {
+			permutations = append(permutations, append([]int{elements[i]}, perm...))
+		}
+	}
+	return permutations
 }
 
 func pow(a, b int) int {
