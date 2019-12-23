@@ -106,10 +106,10 @@ func main() {
 	{
 		fmt.Println("--- Part One ---")
 
-		phaseSettings := getPermutations([]int{0,1,2,3,4})
+		phaseSettings := getPermutations([]int{0, 1, 2, 3, 4})
 		maxThruster := 0
 		for _, p := range phaseSettings {
-             e := emulateAmplifiers(program, p)
+			e := emulateAmplifiers(program, p)
 
 			maxThruster = max(maxThruster, e)
 		}
@@ -119,14 +119,14 @@ func main() {
 	{
 		fmt.Println("--- Part Two ---")
 
-	    phaseSettings := getPermutations([]int{5,6,7,8,9})
-    	maxThruster := 0
-    	for _, p := range phaseSettings {
-                e := emulateAmplifiers(program, p)
+		phaseSettings := getPermutations([]int{5, 6, 7, 8, 9})
+		maxThruster := 0
+		for _, p := range phaseSettings {
+			e := emulateAmplifiers(program, p)
 
-    			maxThruster = max(maxThruster, e)
-    		}
-    		fmt.Println(maxThruster)
+			maxThruster = max(maxThruster, e)
+		}
+		fmt.Println(maxThruster)
 	}
 }
 
